@@ -1,0 +1,31 @@
+# app/schemas/user.py
+from pydantic import BaseModel, EmailStr
+from enum import Enum
+
+class Role(str, Enum):
+    Admin = "Admin"
+    ScrumMaster = "ScrumMaster"
+    Developer = "Developer"
+
+class UserBase(BaseModel):
+    email: EmailStr
+    full_name: str
+    role: Role
+
+class UserCreate(UserBase):
+    password: str
+
+class UserOut(UserBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+class UserRead(BaseModel):
+    id: int
+    email: str
+    full_name: str
+    role: Role
+
+    class Config:
+        from_attributes = True  # Use this for SQLAlchemy models in Pydantic v2+
