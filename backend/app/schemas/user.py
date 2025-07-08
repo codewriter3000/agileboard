@@ -38,10 +38,3 @@ class UserUpdate(BaseModel):
     model_config = {
         "from_attributes": True
     }
-
-class UserDelete(BaseModel):
-    id: int
-
-    class Config:
-        orm_mode = True
-        from_attributes = True  # Use this for SQLAlchemy models in Pydantic v2+
