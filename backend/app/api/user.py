@@ -1,5 +1,5 @@
 # app/api/user.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from app.db import models
 from app.db.session import SessionLocal
@@ -47,4 +47,4 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
     user_crud.delete_user(db, db_user)
-    return db_user
+    return Response(status_code=204, content=None)

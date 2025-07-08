@@ -2,6 +2,7 @@
 from pydantic import BaseModel, EmailStr
 from enum import Enum
 
+
 class Role(str, Enum):
     Admin = "Admin"
     ScrumMaster = "ScrumMaster"
