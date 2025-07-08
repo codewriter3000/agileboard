@@ -29,3 +29,18 @@ class UserRead(BaseModel):
 
     class Config:
         from_attributes = True  # Use this for SQLAlchemy models in Pydantic v2+
+
+class UserUpdate(BaseModel):
+    full_name: str | None = None
+    role: Role | None = None
+
+    model_config = {
+        "from_attributes": True
+    }
+
+class UserDelete(BaseModel):
+    id: int
+
+    class Config:
+        orm_mode = True
+        from_attributes = True  # Use this for SQLAlchemy models in Pydantic v2+
