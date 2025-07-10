@@ -1,7 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
-from app.api import user, task
+from app.api import user
 from app.db.base import init_db
 
 @asynccontextmanager
@@ -19,4 +19,3 @@ app = FastAPI(
 )
 
 app.include_router(user.router)
-app.include_router(task.router)
