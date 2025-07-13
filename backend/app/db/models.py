@@ -26,6 +26,7 @@ class Task(Base):
     description = Column(Text)
     status = Column(Enum("Backlog", "In Progress", "Review", "Done", name="task_status"), default="Backlog")
     assignee_id = Column(Integer, ForeignKey("users.id"))
-    project_id = Column(Integer, ForeignKey("projects.id"))
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    sprint_id = Column(Integer, nullable=True)  # Temporarily commented until database migration
     created_at = Column(DateTime, default=datetime.utcnow)
 
