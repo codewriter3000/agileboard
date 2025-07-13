@@ -41,10 +41,10 @@ def update_user(user_id: int, updates: UserUpdate, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="User not found")
     return user_crud.update_user(db, db_user, updates)
 
-@router.delete("/{user_id}", response_model=UserOut)
+@router.delete("/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     db_user = user_crud.get_user_by_id(db, user_id)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
     user_crud.delete_user(db, db_user)
-    return Response(status_code=204, content=None)
+    return Response(status_code=204)

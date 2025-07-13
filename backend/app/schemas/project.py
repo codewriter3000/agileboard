@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from enum import Enum
 from datetime import datetime
 from typing import Optional
@@ -13,8 +13,8 @@ class ProjectBase(BaseModel):
     owner_id: int
     description: Optional[str] = None
     status: ProjectStatus = ProjectStatus.active
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
 class ProjectCreate(ProjectBase):
     pass
@@ -24,8 +24,7 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = None
     status: Optional[ProjectStatus] = None
     owner_id: Optional[int] = None
-    updated_at: datetime = datetime.now()
-    created_at: datetime = datetime.now()
+    updated_at: datetime = Field(default_factory=datetime.now)
 
     model_config = {
         "from_attributes": True
@@ -33,8 +32,6 @@ class ProjectUpdate(BaseModel):
 
 class ProjectOut(ProjectBase):
     id: int
-    name: str
-    description: Optional[str] = None
 
     model_config = {
         "from_attributes": True

@@ -3,6 +3,7 @@ from app.db import models
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectOut, ProjectRead
 from app.crud import user as user_crud
 from fastapi import HTTPException
+from datetime import datetime
 
 def get_projects(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Project).offset(skip).limit(limit).all()
@@ -30,7 +31,8 @@ def create_project(db: Session, project: ProjectCreate):
     db_project = models.Project(
         name=project.name,
         description=project.description,
-        owner_id=project.owner_id
+        owner_id=project.owner_id,
+        status=project.status
     )
     db.add(db_project)
     db.commit()
@@ -54,6 +56,12 @@ def update_project(db: Session, db_project: models.Project, updates: ProjectUpda
         if owner.role != "Admin":
             raise HTTPException(status_code=403, detail="Only Admin users can be project owners")
         db_project.owner_id = updates.owner_id
+    if updates.status is not None:
+        db_project.status = updates.status
+
+    # Always update the updated_at timestamp
+    db_project.updated_at = datetime.now()
+
     db.commit()
     db.refresh(db_project)
     return db_project
