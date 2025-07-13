@@ -4,6 +4,7 @@ import "./App.css";
 import { ProjectList } from "./components/ProjectList";
 import { ProjectDetailsPage } from "./components/ProjectDetailsPage";
 import { TaskDetailsPage } from "./components/TaskDetailsPage";
+import { UserList } from "./components/UserList";
 import Navbar from "./components/Navbar";
 
 function App() {
@@ -57,6 +58,7 @@ function App() {
           <Route path="/projects" element={<ProjectList />} />
           <Route path="/projects/:id" element={<ProjectDetailsPage />} />
           <Route path="/projects/:projectId/tasks/:taskId" element={<TaskDetailsPage />} />
+          <Route path="/users" element={<UserList />} />
         </Routes>
       </main>
     </div>

@@ -22,6 +22,8 @@ type Project = {
 
 type ProjectDetailsProps = {
   project: Project;
+  onCreateTask?: () => void;
+  onEditProject?: () => void;
 };
 
 const statusColor = {
@@ -55,7 +57,7 @@ const injectStyles = () => {
   }
 };
 
-export const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project }) => {
+export const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project, onCreateTask, onEditProject }) => {
   const navigate = useNavigate();
 
   const handleTaskClick = (taskId: number) => {
@@ -66,13 +68,28 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project }) => {
   if (!project) {
     return <div className="error">Project not found</div>;
   }
-  if (project.tasks.length === 0) {
-    return <div className="info">No tasks available for this project.</div>;
-  }
 
   return (
     <div style={{ padding: 24, maxWidth: 800, margin: "0 auto" }}>
-      <h2>{project.name}</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2>{project.name}</h2>
+        {onEditProject && (
+          <button
+            onClick={onEditProject}
+            style={{
+              background: '#007bff',
+              color: 'white',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            Edit Project
+          </button>
+        )}
+      </div>
       <p>
         <strong>Description:</strong> {project.description}
       </p>
@@ -88,7 +105,49 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project }) => {
           </>
         )}
       </p>
-      <h3>Tasks</h3>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h3>Tasks</h3>
+        {onCreateTask && (
+          <button
+            onClick={onCreateTask}
+            style={{
+              background: '#28a745',
+              color: 'white',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            + Add Task
+          </button>
+        )}
+      </div>
+
+      {project.tasks.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+          <p>No tasks available for this project.</p>
+          {onCreateTask && (
+            <button
+              onClick={onCreateTask}
+              style={{
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                marginTop: '16px'
+              }}
+            >
+              Create Your First Task
+            </button>
+          )}
+        </div>
+      ) : (
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>
@@ -180,6 +239,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project }) => {
           ))}
         </tbody>
       </table>
+      )}
     </div>
   );
 };

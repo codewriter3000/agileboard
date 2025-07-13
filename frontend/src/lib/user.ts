@@ -7,6 +7,11 @@ export interface CreateUserPayload {
     role?: UserRole;
 }
 
+export interface UserUpdatePayload {
+    full_name?: string;
+    role?: UserRole;
+}
+
 export interface User {
     id: number;
     full_name: string;
@@ -32,7 +37,7 @@ export async function createUser(payload: CreateUserPayload): Promise<User> {
     return response.data;
 }
 
-export async function updateUser(id: number, payload: Partial<CreateUserPayload>): Promise<User> {
+export async function updateUser(id: number, payload: UserUpdatePayload): Promise<User> {
     const response = await api.put(`/users/${id}`, payload);
     return response.data;
 }

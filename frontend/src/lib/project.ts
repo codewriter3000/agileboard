@@ -7,6 +7,7 @@ export interface Project {
   name: string;
   description?: string;
   owner_id: number;
+  status?: ProjectStatus;
   created_at: string;
   updated_at: string;
 }
@@ -15,7 +16,17 @@ export interface ProjectCreate {
   name: string;
   description?: string;
   owner_id: number;
+  status?: ProjectStatus;
 }
+
+export interface ProjectUpdate {
+  name?: string;
+  description?: string;
+  owner_id?: number;
+  status?: ProjectStatus;
+}
+
+export type ProjectStatus = 'Active' | 'Archived';
 
 // Project API functions
 export async function getProjects(): Promise<Project[]> {
@@ -33,7 +44,7 @@ export async function createProject(data: ProjectCreate): Promise<Project> {
   return response.data;
 }
 
-export async function updateProject(id: number, data: ProjectCreate): Promise<Project> {
+export async function updateProject(id: number, data: ProjectUpdate): Promise<Project> {
   const response = await api.put(`/projects/${id}`, data);
   return response.data;
 }

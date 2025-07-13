@@ -1,16 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-
-export interface Project {
-    id: string;
-    name: string;
-    description?: string;
-    owner_id: string;
-    created_at: string;
-}
+import type { Project } from '../lib/project';
 
 interface ProjectCardProps {
     project: Project;
+    onEdit: (project: Project) => void;
 }
 
 // CSS styles
@@ -52,6 +46,25 @@ const styles = `
 .project-meta-date {
     font-style: italic;
 }
+.project-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #555;
+}
+.project-card-edit-btn {
+    padding: 4px 8px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+.project-card-edit-btn:hover {
+    background: #0056b3;
+}
 `;
 
 // Inject styles into the document
@@ -64,7 +77,7 @@ const injectStyles = () => {
     }
 };
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
+const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit }) => {
     React.useEffect(() => {
         injectStyles();
     }, []);
@@ -75,15 +88,30 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
         navigate(`/projects/${project.id}`);
     };
 
+    const handleEditClick = (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent navigation when clicking edit
+        onEdit(project);
+    };
+
     return (
-        <div className="project-card" onClick={handleClick} tabIndex={0} role="button">
-            <h3 className="project-card-title">{project.name}</h3>
-            {project.description && <p className="project-card-desc">{project.description}</p>}
-            <div className="project-meta">
-                <span className="project-meta-owner">Owner: {project.owner_id}</span>
-                <span className="project-meta-date">
-                    Created: {new Date(project.created_at).toLocaleDateString()}
-                </span>
+        <div className="project-card">
+            <div className="project-card-content" onClick={handleClick} tabIndex={0} role="button">
+                <h3 className="project-card-title">{project.name}</h3>
+                {project.description && <p className="project-card-desc">{project.description}</p>}
+                <div className="project-meta">
+                    <span className="project-meta-owner">Owner: {project.owner_id}</span>
+                    <span className="project-meta-date">
+                        Created: {new Date(project.created_at).toLocaleDateString()}
+                    </span>
+                </div>
+            </div>
+            <div className="project-card-actions">
+                <button
+                    className="project-card-edit-btn"
+                    onClick={handleEditClick}
+                >
+                    Edit
+                </button>
             </div>
         </div>
     );

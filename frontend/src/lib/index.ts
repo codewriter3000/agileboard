@@ -11,6 +11,6 @@ export * from './project';
 export * from './task';
 
 // Types
-export type { User, UserRole, CreateUserPayload } from './user';
+export type { User, UserRole, CreateUserPayload, UserUpdatePayload } from './user';
 export type { Project, ProjectCreate } from './project';
-export type { Task, TaskCreate, TaskStatus, TaskPriority } from './task';
+export type { Task, TaskCreate, TaskStatus } from './task';
