@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import asynccontextmanager
-from app.api import user, project, task
+from app.api import user, project, task, auth
 from app.db.base import init_db
 
 @asynccontextmanager
@@ -28,6 +28,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(project.router)
 app.include_router(task.router)

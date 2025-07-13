@@ -78,6 +78,6 @@ class TaskDelete(BaseModel):
     id: int
     reason: Optional[str] = None
 
-    class Config:
-        orm_mode = True
-        from_attributes = True  # Use this for SQLAlchemy models in Pydantic v2+
+    model_config = {
+        "from_attributes": True
+    }
