@@ -1,23 +1,66 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import "./App.css";
+import { ProjectList } from "./components/ProjectList";
+import { ProjectDetailsPage } from "./components/ProjectDetailsPage";
+import { TaskDetailsPage } from "./components/TaskDetailsPage";
+import Navbar from "./components/Navbar";
 
 function App() {
-	const [username, setUsername] = useState('');
-	const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("Developer"); // Default for now
+  const [isLoggedIn, setIsLoggedIn] = useState(true); // Default for now
 
-	const handleLogin = () => {
-	};
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="app">
+        <h1>Agile Board - Login</h1>
+        <div className="login-form">
+          <div>
+            Username:{" "}
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+          <div>
+            Password:{" "}
+            <input
+              type="password"
+              placeholder="Password"
+            />
+          </div>
+          <button onClick={handleLogin}>Login</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
-			<h1>Login</h1>
-			Username: <input type="textbox" onChange={val => setUsername(val)} /><br />
-			Password: <input type="password" onChange={val => setPassword(val)} /><br />
-			<button type="submit">Login</button>
-    </>
-  )
+    <div className="app">
+      <Navbar
+        appTitle="Agile Board"
+        username={username}
+        onLogout={handleLogout}
+      />
+      <main>
+        <Routes>
+          <Route path="/" element={<Navigate to="/projects" replace />} />
+          <Route path="/projects" element={<ProjectList />} />
+          <Route path="/projects/:id" element={<ProjectDetailsPage />} />
+          <Route path="/projects/:projectId/tasks/:taskId" element={<TaskDetailsPage />} />
+        </Routes>
+      </main>
+    </div>
+  );
 }
 
-export default App
+export default App;
