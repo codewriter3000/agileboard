@@ -11,10 +11,10 @@ from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.db.base import Base
-from app.db.session import get_db
+from app.core.deps import get_db
 from app.core.auth import get_password_hash, create_access_token, token_blacklist
 from app.db.models import User, Project, Task
-from app.schemas.user import UserRole
+from app.schemas.user import Role
 
 
 # Test database setup
@@ -71,7 +71,7 @@ def test_users(db_session):
         email="admin@test.com",
         full_name="Admin User",
         hashed_password=get_password_hash("admin123"),
-        role=UserRole.Admin,
+        role=Role.Admin,
         is_active=True
     )
     db_session.add(admin_user)
@@ -81,7 +81,7 @@ def test_users(db_session):
         email="scrum@test.com",
         full_name="Scrum Master",
         hashed_password=get_password_hash("scrum123"),
-        role=UserRole.ScrumMaster,
+        role=Role.ScrumMaster,
         is_active=True
     )
     db_session.add(scrum_user)
@@ -91,7 +91,7 @@ def test_users(db_session):
         email="dev@test.com",
         full_name="Developer User",
         hashed_password=get_password_hash("dev123"),
-        role=UserRole.Developer,
+        role=Role.Developer,
         is_active=True
     )
     db_session.add(dev_user)
@@ -101,7 +101,7 @@ def test_users(db_session):
         email="inactive@test.com",
         full_name="Inactive User",
         hashed_password=get_password_hash("inactive123"),
-        role=UserRole.Developer,
+        role=Role.Developer,
         is_active=False
     )
     db_session.add(inactive_user)

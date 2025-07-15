@@ -10,7 +10,7 @@ Tests cover:
 """
 
 import pytest
-from app.schemas.user import UserRole
+from app.schemas.user import Role
 
 
 class TestUserCRUD:

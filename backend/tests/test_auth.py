@@ -21,7 +21,7 @@ from app.core.auth import (
     token_blacklist,
     revoke_all_user_tokens
 )
-from app.schemas.user import UserRole
+from app.schemas.user import Role
 
 
 class TestAuthentication:
@@ -56,7 +56,7 @@ class TestAuthentication:
 
         # Valid token should verify
         token_data = verify_token(token)
-        assert token_data["sub"] == email
+        assert token_data.email == email
 
         # Invalid token should raise exception
         with pytest.raises(HTTPException) as exc_info:
@@ -71,7 +71,7 @@ class TestAuthentication:
         # Token should be valid initially
         assert not token_blacklist.is_blacklisted(token)
         token_data = verify_token(token)
-        assert token_data["sub"] == email
+        assert token_data.email == email
 
         # Add token to blacklist
         token_blacklist.add_token(token, email)
