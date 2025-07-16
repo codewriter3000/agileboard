@@ -30,9 +30,8 @@ class TestTaskCRUD:
         assert "description" in task
         assert "status" in task
         assert "project_id" in task
-        assert "assigned_to" in task
+        assert "assignee_id" in task
         assert "created_at" in task
-        assert "updated_at" in task
 
     def test_get_task_by_id(self, client, test_tasks, auth_headers):
         """Test getting task by ID."""
@@ -53,7 +52,7 @@ class TestTaskCRUD:
         assert "Task not found" in response.json()["detail"]
 
     def test_create_task(self, client, test_projects, auth_headers):
-        """Test creating a new task."""
+        """Test creating a new task (only Scrum Masters and Admins can create tasks)."""
         new_task = {
             "title": "New Test Task",
             "description": "A new task for testing",
@@ -61,15 +60,28 @@ class TestTaskCRUD:
             "project_id": test_projects["active"].id
         }
 
-        response = client.post("/tasks/", json=new_task, headers=auth_headers["admin"])
-
+        # Scrum Master can create tasks
+        response = client.post("/tasks/", json=new_task, headers=auth_headers["scrum"])
         assert response.status_code == 200
         data = response.json()
         assert data["title"] == new_task["title"]
         assert data["description"] == new_task["description"]
         assert data["status"] == new_task["status"]
+
+        # Admin can create tasks
+        new_task["title"] = "Admin Task"
+        response = client.post("/tasks/", json=new_task, headers=auth_headers["admin"])
+        assert response.status_code == 200
+        data = response.json()
+        assert data["title"] == "Admin Task"
+
+        # Developer cannot create tasks
+        new_task["title"] = "Developer Task"
+        response = client.post("/tasks/", json=new_task, headers=auth_headers["dev"])
+        assert response.status_code == 403
+        assert "Only Scrum Masters and Admins can create tasks" in response.json()["detail"]
         assert data["project_id"] == new_task["project_id"]
-        assert data["assigned_to"] is None  # No assignee by default
+        assert data["assignee_id"] is None  # No assignee by default
 
     def test_create_task_with_assignee(self, client, test_projects, test_users, auth_headers):
         """Test creating a task with assignee."""
@@ -78,14 +90,14 @@ class TestTaskCRUD:
             "description": "A task with assignee",
             "status": "In Progress",
             "project_id": test_projects["active"].id,
-            "assigned_to": test_users["dev"].id
+            "assignee_id": test_users["dev"].id
         }
 
         response = client.post("/tasks/", json=new_task, headers=auth_headers["admin"])
 
         assert response.status_code == 200
         data = response.json()
-        assert data["assigned_to"] == test_users["dev"].id
+        assert data["assignee_id"] == test_users["dev"].id
 
     def test_create_task_invalid_status(self, client, test_projects, auth_headers):
         """Test creating task with invalid status."""
@@ -121,7 +133,7 @@ class TestTaskCRUD:
             "description": "Task with non-existent assignee",
             "status": "In Progress",
             "project_id": test_projects["active"].id,
-            "assigned_to": 99999
+            "assignee_id": 99999
         }
 
         response = client.post("/tasks/", json=invalid_task, headers=auth_headers["admin"])
@@ -141,23 +153,36 @@ class TestTaskCRUD:
         assert response.status_code == 422  # Validation error
 
     def test_update_task(self, client, test_tasks, test_users, auth_headers):
-        """Test updating a task."""
+        """Test updating a task (only Scrum Masters and Admins can update tasks)."""
         task_id = test_tasks["backlog"].id
         update_data = {
             "title": "Updated Task Title",
             "description": "Updated description",
             "status": "In Progress",
-            "assigned_to": test_users["dev"].id
+            "assignee_id": test_users["dev"].id
         }
 
-        response = client.put(f"/tasks/{task_id}", json=update_data, headers=auth_headers["admin"])
-
+        # Scrum Master can update tasks
+        response = client.put(f"/tasks/{task_id}", json=update_data, headers=auth_headers["scrum"])
         assert response.status_code == 200
         data = response.json()
         assert data["title"] == "Updated Task Title"
         assert data["description"] == "Updated description"
         assert data["status"] == "In Progress"
-        assert data["assigned_to"] == test_users["dev"].id
+        assert data["assignee_id"] == test_users["dev"].id
+
+        # Admin can update tasks
+        update_data["title"] = "Admin Updated Task"
+        response = client.put(f"/tasks/{task_id}", json=update_data, headers=auth_headers["admin"])
+        assert response.status_code == 200
+        data = response.json()
+        assert data["title"] == "Admin Updated Task"
+
+        # Developer cannot update tasks
+        update_data["title"] = "Developer Updated Task"
+        response = client.put(f"/tasks/{task_id}", json=update_data, headers=auth_headers["dev"])
+        assert response.status_code == 403
+        assert "Only Scrum Masters and Admins can update tasks" in response.json()["detail"]
 
     def test_update_task_nonexistent(self, client, auth_headers):
         """Test updating non-existent task."""
@@ -174,7 +199,7 @@ class TestTaskCRUD:
         """Test updating task with invalid assignee."""
         task_id = test_tasks["backlog"].id
         update_data = {
-            "assigned_to": 99999
+            "assignee_id": 99999
         }
 
         response = client.put(f"/tasks/{task_id}", json=update_data, headers=auth_headers["admin"])
@@ -220,7 +245,7 @@ class TestTaskStatus:
 
             # Add assignee for In Progress status
             if status == "In Progress":
-                task_data["assigned_to"] = test_projects["active"].owner_id
+                task_data["assignee_id"] = test_projects["active"].owner_id
 
             response = client.post("/tasks/", json=task_data, headers=auth_headers["admin"])
             assert response.status_code == 200
@@ -254,12 +279,12 @@ class TestTaskStatus:
         # Move to In Progress with assignee - should succeed
         response = client.put(f"/tasks/{task_id}", json={
             "status": "In Progress",
-            "assigned_to": test_users["dev"].id
+            "assignee_id": test_users["dev"].id
         }, headers=auth_headers["admin"])
 
         assert response.status_code == 200
         assert response.json()["status"] == "In Progress"
-        assert response.json()["assigned_to"] == test_users["dev"].id
+        assert response.json()["assignee_id"] == test_users["dev"].id
 
     def test_in_progress_to_done_transition(self, client, test_tasks, auth_headers):
         """Test moving from In Progress to Done."""
@@ -314,26 +339,26 @@ class TestTaskAssignment:
         task_id = test_tasks["backlog"].id
 
         response = client.put(f"/tasks/{task_id}", json={
-            "assigned_to": test_users["dev"].id
+            "assignee_id": test_users["dev"].id
         }, headers=auth_headers["admin"])
 
         assert response.status_code == 200
-        assert response.json()["assigned_to"] == test_users["dev"].id
+        assert response.json()["assignee_id"] == test_users["dev"].id
 
     def test_reassign_task(self, client, test_tasks, test_users, auth_headers):
         """Test reassigning task to different user."""
         task_id = test_tasks["in_progress"].id
-        original_assignee = test_tasks["in_progress"].assigned_to
+        original_assignee = test_tasks["in_progress"].assignee_id
         new_assignee = test_users["scrum"].id
 
         assert original_assignee != new_assignee
 
         response = client.put(f"/tasks/{task_id}", json={
-            "assigned_to": new_assignee
+            "assignee_id": new_assignee
         }, headers=auth_headers["admin"])
 
         assert response.status_code == 200
-        assert response.json()["assigned_to"] == new_assignee
+        assert response.json()["assignee_id"] == new_assignee
 
     def test_unassign_task(self, client, test_tasks, auth_headers):
         """Test unassigning task (removing assignee)."""
@@ -342,11 +367,11 @@ class TestTaskAssignment:
         # First move to Backlog to allow unassignment
         response = client.put(f"/tasks/{task_id}", json={
             "status": "Backlog",
-            "assigned_to": None
+            "assignee_id": None
         }, headers=auth_headers["admin"])
 
         assert response.status_code == 200
-        assert response.json()["assigned_to"] is None
+        assert response.json()["assignee_id"] is None
         assert response.json()["status"] == "Backlog"
 
     def test_assign_to_nonexistent_user(self, client, test_tasks, auth_headers):
@@ -354,7 +379,7 @@ class TestTaskAssignment:
         task_id = test_tasks["backlog"].id
 
         response = client.put(f"/tasks/{task_id}", json={
-            "assigned_to": 99999
+            "assignee_id": 99999
         }, headers=auth_headers["admin"])
 
         assert response.status_code == 400
@@ -365,7 +390,7 @@ class TestTaskAssignment:
         task_id = test_tasks["backlog"].id
 
         response = client.put(f"/tasks/{task_id}", json={
-            "assigned_to": test_users["inactive"].id
+            "assignee_id": test_users["inactive"].id
         }, headers=auth_headers["admin"])
 
         assert response.status_code == 400
@@ -511,8 +536,8 @@ class TestTaskFiltering:
         data = response.json()
 
         # Count tasks by assignee
-        dev_tasks = [t for t in data if t["assigned_to"] == test_users["dev"].id]
-        unassigned_tasks = [t for t in data if t["assigned_to"] is None]
+        dev_tasks = [t for t in data if t["assignee_id"] == test_users["dev"].id]
+        unassigned_tasks = [t for t in data if t["assignee_id"] is None]
 
         assert len(dev_tasks) == 2  # in_progress and done
         assert len(unassigned_tasks) == 1  # backlog

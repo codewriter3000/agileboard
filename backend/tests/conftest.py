@@ -4,15 +4,19 @@ Test configuration and fixtures for the test suite.
 
 import pytest
 import asyncio
+import os
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+# Override DATABASE_URL for testing
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
 from app.main import app
 from app.db.base import Base
 from app.core.deps import get_db
-from app.core.auth import get_password_hash, create_access_token, token_blacklist
+from app.core.auth import get_password_hash, create_access_token, token_blacklist, ACCESS_TOKEN_EXPIRE_MINUTES
 from app.db.models import User, Project, Task
 from app.schemas.user import Role
 
@@ -51,6 +55,14 @@ def client():
         yield c
 
 
+@pytest.fixture(scope="function", autouse=True)
+def clear_token_blacklist():
+    """Clear the token blacklist before each test."""
+    token_blacklist.clear()
+    yield
+    token_blacklist.clear()
+
+
 @pytest.fixture(scope="function")
 def db_session():
     """Create a database session for each test."""
@@ -59,6 +71,9 @@ def db_session():
         yield db
     finally:
         db.close()
+        # Clean up all tables after each test
+        Base.metadata.drop_all(bind=engine)
+        Base.metadata.create_all(bind=engine)
 
 
 @pytest.fixture(scope="function")
@@ -70,7 +85,7 @@ def test_users(db_session):
     admin_user = User(
         email="admin@test.com",
         full_name="Admin User",
-        hashed_password=get_password_hash("admin123"),
+        password_hash=get_password_hash("admin123"),
         role=Role.Admin,
         is_active=True
     )
@@ -80,7 +95,7 @@ def test_users(db_session):
     scrum_user = User(
         email="scrum@test.com",
         full_name="Scrum Master",
-        hashed_password=get_password_hash("scrum123"),
+        password_hash=get_password_hash("scrum123"),
         role=Role.ScrumMaster,
         is_active=True
     )
@@ -90,7 +105,7 @@ def test_users(db_session):
     dev_user = User(
         email="dev@test.com",
         full_name="Developer User",
-        hashed_password=get_password_hash("dev123"),
+        password_hash=get_password_hash("dev123"),
         role=Role.Developer,
         is_active=True
     )
@@ -100,7 +115,7 @@ def test_users(db_session):
     inactive_user = User(
         email="inactive@test.com",
         full_name="Inactive User",
-        hashed_password=get_password_hash("inactive123"),
+        password_hash=get_password_hash("inactive123"),
         role=Role.Developer,
         is_active=False
     )
@@ -138,7 +153,7 @@ def test_projects(db_session, test_users):
     completed_project = Project(
         name="Completed Project",
         description="A completed project",
-        status="Completed",
+        status="Active",
         owner_id=test_users["scrum"].id
     )
     db_session.add(completed_project)
@@ -184,7 +199,7 @@ def test_tasks(db_session, test_users, test_projects):
         description="A task in progress",
         status="In Progress",
         project_id=test_projects["active"].id,
-        assigned_to=test_users["dev"].id
+        assignee_id=test_users["dev"].id
     )
     db_session.add(in_progress_task)
 
@@ -194,7 +209,7 @@ def test_tasks(db_session, test_users, test_projects):
         description="A completed task",
         status="Done",
         project_id=test_projects["active"].id,
-        assigned_to=test_users["dev"].id
+        assignee_id=test_users["dev"].id
     )
     db_session.add(done_task)
 
@@ -217,7 +232,13 @@ def auth_headers(test_users):
 
     for role, user in test_users.items():
         if user.is_active:
-            token = create_access_token(data={"sub": user.email})
+            token = create_access_token(data={"sub": user.email, "user_id": user.id})
+
+            # Track the token for this user
+            import time
+            expires_at = time.time() + (ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+            token_blacklist.track_token(token, user.id, expires_at)
+
             headers[role] = {"Authorization": f"Bearer {token}"}
 
     return headers

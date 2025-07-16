@@ -167,7 +167,7 @@ class TestUserCRUD:
         assert data["role"] == "ScrumMaster"
 
     def test_update_user_scrum_master(self, client, test_users, auth_headers):
-        """Test scrum master can update users."""
+        """Test scrum master can update users but not change roles."""
         user_id = test_users["dev"].id
         update_data = {
             "full_name": "Scrum Updated Developer"
@@ -179,8 +179,17 @@ class TestUserCRUD:
         data = response.json()
         assert data["full_name"] == "Scrum Updated Developer"
 
+        # Scrum master cannot change user roles
+        update_data_with_role = {
+            "full_name": "Role Change Attempt",
+            "role": "Admin"
+        }
+        response = client.put(f"/users/{user_id}", json=update_data_with_role, headers=auth_headers["scrum"])
+        assert response.status_code == 403
+
     def test_update_user_developer_forbidden(self, client, test_users, auth_headers):
-        """Test developer cannot update users."""
+        """Test developer cannot update other users but can update themselves."""
+        # Developer cannot update other users
         user_id = test_users["admin"].id
         update_data = {
             "full_name": "Forbidden Update"
@@ -189,7 +198,27 @@ class TestUserCRUD:
         response = client.put(f"/users/{user_id}", json=update_data, headers=auth_headers["dev"])
 
         assert response.status_code == 403
-        assert "Not enough permissions" in response.json()["detail"]
+        assert "Developers can only update their own account" in response.json()["detail"]
+
+        # Developer can update their own account (email and password only)
+        dev_user_id = test_users["dev"].id
+        update_data = {
+            "email": "newemail@test.com",
+            "password": "newpassword123"
+        }
+
+        response = client.put(f"/users/{dev_user_id}", json=update_data, headers=auth_headers["dev"])
+        assert response.status_code == 200
+        data = response.json()
+        assert data["email"] == "newemail@test.com"
+
+        # Developer cannot update other fields like full_name
+        update_data_forbidden = {
+            "full_name": "New Full Name"
+        }
+        response = client.put(f"/users/{dev_user_id}", json=update_data_forbidden, headers=auth_headers["dev"])
+        assert response.status_code == 403
+        assert "Developers can only update email and password" in response.json()["detail"]
 
     def test_update_user_nonexistent(self, client, auth_headers):
         """Test updating non-existent user."""
@@ -235,7 +264,7 @@ class TestUserCRUD:
         response = client.delete(f"/users/{user_id}", headers=auth_headers["scrum"])
 
         assert response.status_code == 403
-        assert "Not enough permissions" in response.json()["detail"]
+        assert "Admin access required" in response.json()["detail"]
 
     def test_deactivate_user_developer_forbidden(self, client, test_users, auth_headers):
         """Test developer cannot deactivate users."""
@@ -244,7 +273,7 @@ class TestUserCRUD:
         response = client.delete(f"/users/{user_id}", headers=auth_headers["dev"])
 
         assert response.status_code == 403
-        assert "Not enough permissions" in response.json()["detail"]
+        assert "Admin access required" in response.json()["detail"]
 
     def test_deactivate_nonexistent_user(self, client, auth_headers):
         """Test deactivating non-existent user."""

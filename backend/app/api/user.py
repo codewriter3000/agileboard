@@ -46,11 +46,37 @@ def update_user(
     user_id: int,
     updates: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_admin)
+    current_user: models.User = Depends(get_current_user)
 ):
     db_user = user_crud.get_user_by_id(db, user_id)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Check permissions: developers can only update their own email/password
+    if current_user.role == "Developer":
+        if current_user.id != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Developers can only update their own account"
+            )
+        # Developers can only update email and password
+        allowed_fields = {"email", "password"}
+        update_dict = updates.dict(exclude_unset=True)
+        for field in update_dict:
+            if field not in allowed_fields:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Developers can only update email and password"
+                )
+    elif current_user.role == "ScrumMaster":
+        # Scrum masters can update any user but cannot change roles
+        if "role" in updates.dict(exclude_unset=True):
+            raise HTTPException(
+                status_code=403,
+                detail="Only admins can change user roles"
+            )
+    # Admin can update anything - no restrictions
+
     return user_crud.update_user(db, db_user, updates)
 
 @router.delete("/{user_id}")

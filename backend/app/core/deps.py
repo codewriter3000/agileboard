@@ -58,3 +58,12 @@ def require_admin_or_scrum_master(current_user: User = Depends(get_current_activ
             detail="Admin or ScrumMaster access required"
         )
     return current_user
+
+def require_self_or_admin(user_id: int, current_user: User = Depends(get_current_active_user)) -> User:
+    """Require the current user to be the same user or an Admin."""
+    if current_user.id != user_id and current_user.role != "Admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only modify your own account"
+        )
+    return current_user

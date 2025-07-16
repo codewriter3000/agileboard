@@ -15,6 +15,12 @@ def create_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Only Scrum Masters and Admins can create tasks
+    if current_user.role not in ["Admin", "ScrumMaster"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Only Scrum Masters and Admins can create tasks"
+        )
     return task_crud.create_task(db=db, task=task)
 
 @router.get("/", response_model=List[TaskOut])
@@ -44,17 +50,25 @@ def update_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Only Scrum Masters and Admins can update tasks
+    if current_user.role not in ["Admin", "ScrumMaster"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Only Scrum Masters and Admins can update tasks"
+        )
+
     db_task = task_crud.get_task_by_id(db=db, task_id=task_id)
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
     return task_crud.update_task(db=db, db_task=db_task, updates=task)
 
-@router.delete("/{task_id}", response_model=TaskOut)
+@router.delete("/{task_id}")
 def delete_task(
     task_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_or_scrum_master)
 ):
+    # Only Scrum Masters and Admins can delete tasks
     db_task = task_crud.get_task_by_id(db=db, task_id=task_id)
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")

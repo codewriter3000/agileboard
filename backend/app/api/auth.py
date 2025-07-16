@@ -10,7 +10,8 @@ from app.core.auth import (
     Token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     revoke_token,
-    revoke_all_user_tokens
+    revoke_all_user_tokens,
+    token_blacklist
 )
 from app.core.deps import get_db, get_current_user
 from app.crud import user as user_crud
@@ -37,6 +38,8 @@ def authenticate_user(db: Session, email: str, password: str) -> User:
         return False
     if not verify_password(password, user.password_hash):
         return False
+    if not user.is_active:
+        return False
     return user
 
 @router.post("/login", response_model=LoginResponse)
@@ -55,6 +58,11 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
         data={"sub": user.email, "user_id": user.id},
         expires_delta=access_token_expires
     )
+
+    # Track the token for this user
+    import time
+    expires_at = time.time() + (ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+    token_blacklist.track_token(access_token, user.id, expires_at)
 
     return LoginResponse(
         access_token=access_token,
@@ -86,6 +94,11 @@ def login_for_access_token(
         data={"sub": user.email, "user_id": user.id},
         expires_delta=access_token_expires
     )
+
+    # Track the token for this user
+    import time
+    expires_at = time.time() + (ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+    token_blacklist.track_token(access_token, user.id, expires_at)
 
     return {"access_token": access_token, "token_type": "bearer"}
 

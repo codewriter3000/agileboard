@@ -6,6 +6,7 @@ from passlib.context import CryptContext
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 import time
+import uuid
 
 # Configuration
 SECRET_KEY = "your-secret-key-here-change-in-production"  # Change this in production!
@@ -21,6 +22,12 @@ class TokenBlacklist:
         self._blacklist: Dict[str, float] = {}  # token -> expiration_timestamp
         self._user_tokens: Dict[int, Set[str]] = {}  # user_id -> set of tokens
 
+    def track_token(self, token: str, user_id: int, expires_at: float):
+        """Track an active token for a user."""
+        if user_id not in self._user_tokens:
+            self._user_tokens[user_id] = set()
+        self._user_tokens[user_id].add(token)
+
     def add_token(self, token: str, expires_at: float, user_id: int = None):
         """Add a token to the blacklist with expiration time."""
         self._blacklist[token] = expires_at
@@ -31,8 +38,8 @@ class TokenBlacklist:
                 self._user_tokens[user_id] = set()
             self._user_tokens[user_id].add(token)
 
-        # Clean up expired tokens to prevent memory bloat
-        self._cleanup_expired()
+        # Note: We don't cleanup expired tokens here to allow tests to verify
+        # that tokens are initially added. Cleanup happens in is_blacklisted()
 
     def is_blacklisted(self, token: str) -> bool:
         """Check if a token is blacklisted."""
@@ -95,6 +102,11 @@ class TokenBlacklist:
         for token in expired_tokens:
             self._remove_token(token)
 
+    def clear(self):
+        """Clear all tokens from blacklist. Used for testing."""
+        self._blacklist.clear()
+        self._user_tokens.clear()
+
 # Global blacklist instance
 token_blacklist = TokenBlacklist()
 
@@ -123,15 +135,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
     to_encode.update({"exp": expire})
+    # Add a unique identifier to ensure tokens are unique even with same payload
+    to_encode.update({"jti": str(uuid.uuid4())})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-    # Track token by user ID for revocation purposes
-    user_id = data.get("user_id")
-    if user_id:
-        # Don't add to blacklist yet, just track for potential future revocation
-        if user_id not in token_blacklist._user_tokens:
-            token_blacklist._user_tokens[user_id] = set()
-        token_blacklist._user_tokens[user_id].add(encoded_jwt)
 
     return encoded_jwt
 

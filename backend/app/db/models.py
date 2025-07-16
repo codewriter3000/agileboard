@@ -1,5 +1,5 @@
 # app/db/models.py
-from sqlalchemy import Column, Integer, String, Text, Enum, DateTime, ForeignKey, Date
+from sqlalchemy import Column, Integer, String, Text, Enum, DateTime, ForeignKey, Date, Boolean
 from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
 from app.db.base_class import Base
@@ -11,6 +11,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     full_name = Column(String)
     role = Column(Enum("Admin", "ScrumMaster", "Developer", name="user_roles"), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
 
 class Project(Base):
     __tablename__ = "projects"
