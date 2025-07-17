@@ -23,7 +23,7 @@ class TaskBase(BaseModel):
     def validate_assignee_for_active_status(self):
         if self.status in [TaskStatus.in_progress, TaskStatus.review, TaskStatus.done]:
             if self.assignee_id is None:
-                raise ValueError(f"assignee_id is required when task status is '{self.status.value}'")
+                raise ValueError(f"Cannot create task in {self.status.value} status without assignee")
         return self
 
 

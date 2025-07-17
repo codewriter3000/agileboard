@@ -158,7 +158,7 @@ class TestAuthenticationAPI:
             "password": "admin123"
         })
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert "access_token" in data
         assert data["token_type"] == "bearer"
@@ -201,7 +201,7 @@ class TestAuthenticationAPI:
             "password": "admin123"
         })
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert "access_token" in data
         assert data["token_type"] == "bearer"
@@ -210,7 +210,7 @@ class TestAuthenticationAPI:
         """Test successful logout."""
         response = client.post("/auth/logout", headers=auth_headers["admin"])
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         assert "Successfully logged out from all devices" in response.json()["message"]
 
     def test_logout_invalid_token(self, client):
@@ -225,7 +225,7 @@ class TestAuthenticationAPI:
         """Test logout current session."""
         response = client.post("/auth/logout-current", headers=auth_headers["admin"])
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         assert "Successfully logged out from current device" in response.json()["message"]
 
     def test_token_revocation_after_logout(self, client, test_users, auth_headers):
@@ -258,13 +258,13 @@ class TestRoleBasedAccess:
             "password": "password123",
             "role": "Developer"
         }, headers=auth_headers["admin"])
-        assert response.status_code == 200
+        assert response.status_code == 201
 
         # Admin can delete users
         response = client.delete(f"/users/{test_users['dev'].id}", headers=auth_headers["admin"])
         assert response.status_code == 204  # DELETE typically returns 204 No Content
 
-    def test_scrum_master_access(self, client, test_users, auth_headers):
+    def test_scrum_master_access(self, client, test_users, test_projects, auth_headers):
         """Test scrum master can manage tasks and users but not create users."""
         # Scrum master can access users
         response = client.get("/users/", headers=auth_headers["scrum"])
@@ -283,9 +283,9 @@ class TestRoleBasedAccess:
         response = client.post("/tasks/", json={
             "title": "Scrum Master Task",
             "description": "Task created by scrum master",
-            "project_id": 1
+            "project_id": test_projects["active"].id
         }, headers=auth_headers["scrum"])
-        assert response.status_code == 200
+        assert response.status_code == 201
 
         # Scrum master can update tasks (assign, change status, etc.)
         response = client.put("/tasks/1", json={
@@ -349,14 +349,25 @@ class TestRoleBasedAccess:
         }, headers=auth_headers["dev"])
         assert response.status_code == 200
 
+        # After email update, create a new token since old tokens are revoked for security
+        from app.core.auth import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, token_blacklist
+        import time
+
+        # Update the user object with new email for token creation
+        test_users['dev'].email = "newemail@test.com"
+        new_token = create_access_token(data={"sub": str(test_users['dev'].id), "email": test_users['dev'].email})
+        expires_at = time.time() + (ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+        token_blacklist.track_token(new_token, test_users['dev'].id, expires_at)
+        new_dev_headers = {"Authorization": f"Bearer {new_token}"}
+
         # Developer cannot update other users' profiles
         response = client.put(f"/users/{test_users['admin'].id}", json={
             "email": "hackeremail@test.com"
-        }, headers=auth_headers["dev"])
+        }, headers=new_dev_headers)
         assert response.status_code == 403
 
         # Developer cannot delete users
-        response = client.delete(f"/users/{test_users['admin'].id}", headers=auth_headers["dev"])
+        response = client.delete(f"/users/{test_users['admin'].id}", headers=new_dev_headers)
         assert response.status_code == 403
 
     def test_unauthenticated_access(self, client, test_users):

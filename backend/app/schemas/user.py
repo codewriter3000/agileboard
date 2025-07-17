@@ -12,6 +12,7 @@ class UserBase(BaseModel):
     email: EmailStr
     full_name: str
     role: Role
+    is_active: bool = True
 
 class UserCreate(UserBase):
     password: str
@@ -27,13 +28,16 @@ class UserRead(BaseModel):
     email: str
     full_name: str
     role: Role
+    is_active: bool
 
     class Config:
         from_attributes = True  # Use this for SQLAlchemy models in Pydantic v2+
 
 class UserUpdate(BaseModel):
+    email: EmailStr | None = None
     full_name: str | None = None
     role: Role | None = None
+    is_active: bool | None = None
 
     model_config = {
         "from_attributes": True

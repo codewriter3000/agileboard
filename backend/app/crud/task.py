@@ -15,7 +15,16 @@ def create_task(db: Session, task: TaskCreate):
     if task.assignee_id is not None:
         assignee = user_crud.get_user_by_id(db=db, user_id=task.assignee_id)
         if not assignee:
-            raise HTTPException(status_code=404, detail="Assignee user not found")
+            raise HTTPException(status_code=400, detail="Assignee not found")
+        if not assignee.is_active:
+            raise HTTPException(status_code=400, detail="Cannot assign task to inactive user")
+
+    # Validate that In Progress status requires an assignee
+    if task.status == "In Progress" and task.assignee_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot create task in In Progress status without assignee"
+        )
 
     db_task = models.Task(
         title=task.title,
@@ -31,37 +40,32 @@ def create_task(db: Session, task: TaskCreate):
     return db_task
 
 def update_task(db: Session, db_task: models.Task, updates: TaskUpdate):
+    # Get the model fields that were explicitly set in the update
+    update_data = updates.model_dump(exclude_unset=True)
+
     # Apply updates to determine final state
-    final_status = updates.status if updates.status is not None else db_task.status
-    final_assignee_id = updates.assignee_id if updates.assignee_id is not None else db_task.assignee_id
+    final_status = update_data.get('status', db_task.status)
+    final_assignee_id = update_data.get('assignee_id', db_task.assignee_id)
 
-    # Validate that the assignee exists if being updated
-    if updates.assignee_id is not None:
-        assignee = user_crud.get_user_by_id(db=db, user_id=updates.assignee_id)
+    # Validate that the assignee exists if being updated and is not None
+    if 'assignee_id' in update_data and update_data['assignee_id'] is not None:
+        assignee = user_crud.get_user_by_id(db=db, user_id=update_data['assignee_id'])
         if not assignee:
-            raise HTTPException(status_code=404, detail="Assignee user not found")
+            raise HTTPException(status_code=400, detail="Assignee not found")
+        if not assignee.is_active:
+            raise HTTPException(status_code=400, detail="Cannot assign task to inactive user")
 
-    # Validate assignee requirement for active statuses
-    if final_status in ["In Progress", "Review", "Done"]:
-        if final_assignee_id is None:
-            raise HTTPException(
-                status_code=400,
-                detail=f"assignee_id is required when task status is '{final_status}'"
-            )
+    # Validate "In Progress" status requires an assignee
+    if final_status == "In Progress" and final_assignee_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot move task to In Progress without assignee"
+        )
 
     # Apply the updates
-    if updates.title is not None:
-        db_task.title = updates.title
-    if updates.description is not None:
-        db_task.description = updates.description
-    if updates.status is not None:
-        db_task.status = updates.status
-    if updates.assignee_id is not None:
-        db_task.assignee_id = updates.assignee_id
-    if updates.project_id is not None:
-        db_task.project_id = updates.project_id
-    if updates.sprint_id is not None:
-        db_task.sprint_id = updates.sprint_id
+    for field, value in update_data.items():
+        setattr(db_task, field, value)
+
     db.commit()
     db.refresh(db_task)
     return db_task

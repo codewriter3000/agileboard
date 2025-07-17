@@ -10,7 +10,7 @@ from typing import List
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
-@router.post("/", response_model=ProjectOut)
+@router.post("/", response_model=ProjectOut, status_code=201)
 def create_project(
     project: ProjectCreate,
     db: Session = Depends(get_db),

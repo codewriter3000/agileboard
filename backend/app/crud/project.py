@@ -25,8 +25,17 @@ def create_project(db: Session, project: ProjectCreate):
         owner = user_crud.get_user_by_id(db=db, user_id=project.owner_id)
         if not owner:
             raise HTTPException(status_code=404, detail="Owner user not found")
+        if not owner.is_active:
+            raise HTTPException(status_code=400, detail="Owner must be active")
         if owner.role != "Admin":
             raise HTTPException(status_code=403, detail="Only Admin users can be project owners")
+
+    # Validate that the name exists
+    if not project.name:
+        raise HTTPException(status_code=400, detail="Project name is required")
+
+    if len(project.name) > 255:
+        raise HTTPException(status_code=400, detail="Project name is too long")
 
     db_project = models.Project(
         name=project.name,
@@ -55,6 +64,8 @@ def update_project(db: Session, db_project: models.Project, updates: ProjectUpda
             raise HTTPException(status_code=404, detail="Owner user not found")
         if owner.role != "Admin":
             raise HTTPException(status_code=403, detail="Only Admin users can be project owners")
+        if not owner.is_active:
+            raise HTTPException(status_code=400, detail="Owner must be active")
         db_project.owner_id = updates.owner_id
     if updates.status is not None:
         db_project.status = updates.status

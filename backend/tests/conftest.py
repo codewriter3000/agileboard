@@ -149,11 +149,11 @@ def test_projects(db_session, test_users):
     )
     db_session.add(active_project)
 
-    # Completed project
+    # Completed project (using Archived status since Completed is not supported)
     completed_project = Project(
         name="Completed Project",
         description="A completed project",
-        status="Active",
+        status="Archived",
         owner_id=test_users["scrum"].id
     )
     db_session.add(completed_project)
@@ -232,7 +232,7 @@ def auth_headers(test_users):
 
     for role, user in test_users.items():
         if user.is_active:
-            token = create_access_token(data={"sub": user.email, "user_id": user.id})
+            token = create_access_token(data={"sub": str(user.id)})
 
             # Track the token for this user
             import time

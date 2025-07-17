@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def get_users(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.User).offset(skip).limit(limit).all()
+    return db.query(models.User).filter(models.User.is_active == True).offset(skip).limit(limit).all()
 
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
@@ -33,6 +33,10 @@ def update_user(db: Session, db_user: models.User, updates: UserUpdate):
         db_user.full_name = updates.full_name
     if updates.role is not None:
         db_user.role = updates.role
+    if updates.email is not None:
+        db_user.email = updates.email
+    if updates.is_active is not None:
+        db_user.is_active = updates.is_active
     db.commit()
     db.refresh(db_user)
     return db_user

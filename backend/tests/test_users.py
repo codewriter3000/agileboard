@@ -57,13 +57,13 @@ class TestUserCRUD:
         new_user = {
             "email": "newuser@test.com",
             "full_name": "New Test User",
-            "password": "password123",
+            "password": "Password123!",
             "role": "Developer"
         }
 
         response = client.post("/users/", json=new_user, headers=auth_headers["admin"])
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["email"] == new_user["email"]
         assert data["full_name"] == new_user["full_name"]
@@ -71,41 +71,39 @@ class TestUserCRUD:
         assert data["is_active"] is True
         assert "hashed_password" not in data
 
-    def test_create_user_scrum_master(self, client, auth_headers):
-        """Test scrum master can create users."""
+    def test_create_user_scrum_master_forbidden(self, client, auth_headers):
+        """Test scrum master cannot create users."""
         new_user = {
             "email": "scrumcreated@test.com",
             "full_name": "Scrum Created User",
-            "password": "password123",
+            "password": "Password123!",
             "role": "Developer"
         }
 
         response = client.post("/users/", json=new_user, headers=auth_headers["scrum"])
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["email"] == new_user["email"]
+        assert response.status_code == 403
 
     def test_create_user_developer_forbidden(self, client, auth_headers):
         """Test developer cannot create users."""
         new_user = {
             "email": "forbidden@test.com",
             "full_name": "Forbidden User",
-            "password": "password123",
+            "password": "Password123!",
             "role": "Developer"
         }
 
         response = client.post("/users/", json=new_user, headers=auth_headers["dev"])
 
         assert response.status_code == 403
-        assert "Not enough permissions" in response.json()["detail"]
+        assert "Admin access required" in response.json()["detail"]
 
     def test_create_user_duplicate_email(self, client, test_users, auth_headers):
         """Test cannot create user with duplicate email."""
         duplicate_user = {
             "email": "admin@test.com",  # Already exists
             "full_name": "Duplicate User",
-            "password": "password123",
+            "password": "Password123!",
             "role": "Developer"
         }
 
@@ -119,7 +117,7 @@ class TestUserCRUD:
         invalid_user = {
             "email": "invalid@test.com",
             "full_name": "Invalid User",
-            "password": "password123",
+            "password": "Password123!",
             "role": "InvalidRole"
         }
 
@@ -132,7 +130,7 @@ class TestUserCRUD:
         invalid_user = {
             "email": "not-an-email",
             "full_name": "Invalid User",
-            "password": "password123",
+            "password": "Password123!",
             "role": "Developer"
         }
 
@@ -196,7 +194,6 @@ class TestUserCRUD:
         }
 
         response = client.put(f"/users/{user_id}", json=update_data, headers=auth_headers["dev"])
-
         assert response.status_code == 403
         assert "Developers can only update their own account" in response.json()["detail"]
 
@@ -212,11 +209,23 @@ class TestUserCRUD:
         data = response.json()
         assert data["email"] == "newemail@test.com"
 
+        # After email update, create a new token since old tokens are revoked for security
+        from app.core.auth import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, token_blacklist
+        import time
+
+        # Update the user object with new email for token creation
+        test_users['dev'].email = "newemail@test.com"
+        new_token = create_access_token(data={"sub": str(test_users['dev'].id), "email": test_users['dev'].email})
+        expires_at = time.time() + (ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+        token_blacklist.track_token(new_token, test_users['dev'].id, expires_at)
+        new_dev_headers = {"Authorization": f"Bearer {new_token}"}
+
         # Developer cannot update other fields like full_name
         update_data_forbidden = {
             "full_name": "New Full Name"
         }
-        response = client.put(f"/users/{dev_user_id}", json=update_data_forbidden, headers=auth_headers["dev"])
+        response = client.put(f"/users/{dev_user_id}", json=update_data_forbidden, headers=new_dev_headers)
+        print(f"### Response: {response.json()}")
         assert response.status_code == 403
         assert "Developers can only update email and password" in response.json()["detail"]
 
@@ -243,22 +252,20 @@ class TestUserCRUD:
         assert response.status_code == 400
         assert "Email already registered" in response.json()["detail"]
 
-    def test_deactivate_user_admin(self, client, test_users, auth_headers):
-        """Test admin can deactivate users."""
+    def test_delete_user_admin(self, client, test_users, auth_headers):
+        """Test admin can delete users."""
         user_id = test_users["dev"].id
 
         response = client.delete(f"/users/{user_id}", headers=auth_headers["admin"])
 
-        assert response.status_code == 200
-        assert "User deactivated successfully" in response.json()["message"]
+        assert response.status_code == 204
 
-        # Verify user is deactivated
+        # Verify user is deleted
         response = client.get(f"/users/{user_id}", headers=auth_headers["admin"])
-        assert response.status_code == 200
-        assert response.json()["is_active"] is False
+        assert response.status_code == 404
 
-    def test_deactivate_user_scrum_master_forbidden(self, client, test_users, auth_headers):
-        """Test scrum master cannot deactivate users."""
+    def test_delete_user_scrum_master_forbidden(self, client, test_users, auth_headers):
+        """Test scrum master cannot delete users."""
         user_id = test_users["dev"].id
 
         response = client.delete(f"/users/{user_id}", headers=auth_headers["scrum"])
@@ -266,8 +273,8 @@ class TestUserCRUD:
         assert response.status_code == 403
         assert "Admin access required" in response.json()["detail"]
 
-    def test_deactivate_user_developer_forbidden(self, client, test_users, auth_headers):
-        """Test developer cannot deactivate users."""
+    def test_delete_user_developer_forbidden(self, client, test_users, auth_headers):
+        """Test developer cannot delete users."""
         user_id = test_users["admin"].id
 
         response = client.delete(f"/users/{user_id}", headers=auth_headers["dev"])
@@ -275,21 +282,12 @@ class TestUserCRUD:
         assert response.status_code == 403
         assert "Admin access required" in response.json()["detail"]
 
-    def test_deactivate_nonexistent_user(self, client, auth_headers):
-        """Test deactivating non-existent user."""
+    def test_delete_nonexistent_user(self, client, auth_headers):
+        """Test deleting non-existent user."""
         response = client.delete("/users/99999", headers=auth_headers["admin"])
 
         assert response.status_code == 404
         assert "User not found" in response.json()["detail"]
-
-    def test_deactivate_already_inactive_user(self, client, test_users, auth_headers):
-        """Test deactivating already inactive user."""
-        user_id = test_users["inactive"].id
-
-        response = client.delete(f"/users/{user_id}", headers=auth_headers["admin"])
-
-        assert response.status_code == 400
-        assert "User is already inactive" in response.json()["detail"]
 
 
 class TestUserValidation:
@@ -299,14 +297,14 @@ class TestUserValidation:
         """Test all valid user roles."""
         for role in ["Admin", "ScrumMaster", "Developer"]:
             user_data = {
-                "email": f"{role.lower()}@test.com",
+                "email": f"new_{role.lower()}@test.com",  # Use unique email addresses
                 "full_name": f"Test {role}",
-                "password": "password123",
+                "password": "Password123!",
                 "role": role
             }
 
             response = client.post("/users/", json=user_data, headers=auth_headers["admin"])
-            assert response.status_code == 200
+            assert response.status_code == 201
             assert response.json()["role"] == role
 
     def test_password_requirements(self, client, auth_headers):
@@ -342,7 +340,7 @@ class TestUserValidation:
             user_data = {
                 "email": email,
                 "full_name": "Test User",
-                "password": "password123",
+                "password": "Password123!",
                 "role": "Developer"
             }
 
@@ -355,7 +353,7 @@ class TestUserValidation:
         user_data = {
             "email": "test@test.com",
             "full_name": "",
-            "password": "password123",
+            "password": "Password123!",
             "role": "Developer"
         }
 

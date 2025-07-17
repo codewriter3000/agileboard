@@ -8,14 +8,40 @@ from app.crud import user as user_crud
 from app.core.deps import get_current_user, require_admin, get_db
 from typing import List
 
+import re
+
 router = APIRouter(prefix="/users", tags=["users"])
 
-@router.post("/", response_model=UserOut)
+@router.post("/", response_model=UserOut, status_code=201)
 def create_user(
     user: UserCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_admin)
 ):
+    # Password must be at least 8 characters and contain at least one letter and number
+    if (
+        user.password is None
+        or len(user.password) < 8
+        or not any(c.isalpha() for c in user.password)
+        or not any(c.isdigit() for c in user.password)
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Password must be at least 8 characters long and contain at least one letter and number."
+        )
+
+    # Validate full name
+    if not user.full_name or len(user.full_name) < 1 or len(user.full_name) > 255:
+        raise HTTPException(status_code=422, detail="Full name must be between 1 and 255 characters")
+
+    if not re.match(r"^[a-zA-Z -]+$", user.full_name):
+        raise HTTPException(status_code=422, detail="Full name can only contain letters, spaces, and hyphens")
+
+    # Validate email format
+    if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", user.email):
+        raise HTTPException(status_code=422, detail="Invalid email format")
+
+    # Check if email already exists
     db_user = user_crud.get_user_by_email(db, user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -76,6 +102,17 @@ def update_user(
                 detail="Only admins can change user roles"
             )
     # Admin can update anything - no restrictions
+
+    if updates.email:
+        existing_user = user_crud.get_user_by_email(db, updates.email)
+        if existing_user and existing_user.id != user_id:
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        # Check if email is actually changing
+        if db_user.email != updates.email:
+            # Email is changing, revoke all existing tokens for security
+            from app.core.auth import revoke_all_user_tokens
+            revoke_all_user_tokens(user_id)
 
     return user_crud.update_user(db, db_user, updates)
 

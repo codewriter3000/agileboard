@@ -27,7 +27,16 @@ def get_current_user(
     token = credentials.credentials
     token_data = verify_token(token)
 
-    user = user_crud.get_user_by_email(db, email=token_data.email)
+    # Try to get user by ID first (new format), fallback to email (legacy format)
+    user = None
+    if token_data.user_id:
+        # New format or legacy token with user_id field
+        user = user_crud.get_user_by_id(db, user_id=token_data.user_id)
+    
+    if user is None and token_data.email:
+        # Legacy format or fallback when user_id lookup fails
+        user = user_crud.get_user_by_email(db, email=token_data.email)
+    
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

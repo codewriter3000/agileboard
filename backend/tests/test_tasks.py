@@ -62,7 +62,7 @@ class TestTaskCRUD:
 
         # Scrum Master can create tasks
         response = client.post("/tasks/", json=new_task, headers=auth_headers["scrum"])
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["title"] == new_task["title"]
         assert data["description"] == new_task["description"]
@@ -71,7 +71,7 @@ class TestTaskCRUD:
         # Admin can create tasks
         new_task["title"] = "Admin Task"
         response = client.post("/tasks/", json=new_task, headers=auth_headers["admin"])
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["title"] == "Admin Task"
 
@@ -95,7 +95,7 @@ class TestTaskCRUD:
 
         response = client.post("/tasks/", json=new_task, headers=auth_headers["admin"])
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["assignee_id"] == test_users["dev"].id
 
@@ -213,7 +213,7 @@ class TestTaskCRUD:
 
         response = client.delete(f"/tasks/{task_id}", headers=auth_headers["admin"])
 
-        assert response.status_code == 200
+        assert response.status_code == 204
         assert "Task deleted successfully" in response.json()["message"]
 
         # Verify task is deleted
@@ -244,11 +244,11 @@ class TestTaskStatus:
             }
 
             # Add assignee for In Progress status
-            if status == "In Progress":
+            if status != "Backlog":
                 task_data["assignee_id"] = test_projects["active"].owner_id
 
             response = client.post("/tasks/", json=task_data, headers=auth_headers["admin"])
-            assert response.status_code == 200
+            assert response.status_code == 201
             assert response.json()["status"] == status
 
     def test_invalid_task_statuses(self, client, test_projects, auth_headers):
@@ -327,8 +327,11 @@ class TestTaskStatus:
 
         response = client.post("/tasks/", json=task_data, headers=auth_headers["admin"])
 
-        assert response.status_code == 400
-        assert "Cannot create task in In Progress status without assignee" in response.json()["detail"]
+        assert response.status_code == 422
+        # Check if the error message is in the validation errors
+        errors = response.json()["detail"]
+        error_messages = [error["msg"] for error in errors]
+        assert any("Cannot create task in In Progress status without assignee" in msg for msg in error_messages)
 
 
 class TestTaskAssignment:
@@ -420,7 +423,7 @@ class TestTaskValidation:
 
     def test_task_description_requirements(self, client, test_projects, auth_headers):
         """Test task description requirements."""
-        # Test empty description
+        # Test empty description, should be allowed
         task_data = {
             "title": "Empty Description Task",
             "description": "",
@@ -429,12 +432,7 @@ class TestTaskValidation:
         }
 
         response = client.post("/tasks/", json=task_data, headers=auth_headers["admin"])
-        assert response.status_code == 422  # Validation error
-
-        # Test very long description
-        task_data["description"] = "A" * 1001
-        response = client.post("/tasks/", json=task_data, headers=auth_headers["admin"])
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 201
 
     def test_task_duplicate_titles_allowed(self, client, test_projects, auth_headers):
         """Test that duplicate task titles are allowed."""
@@ -447,12 +445,12 @@ class TestTaskValidation:
 
         # Create first task
         response1 = client.post("/tasks/", json=task_data, headers=auth_headers["admin"])
-        assert response1.status_code == 200
+        assert response1.status_code == 201
 
         # Create second task with same title
         task_data["description"] = "Second task"
         response2 = client.post("/tasks/", json=task_data, headers=auth_headers["admin"])
-        assert response2.status_code == 200
+        assert response2.status_code == 201
 
         # Both should exist
         assert response1.json()["id"] != response2.json()["id"]

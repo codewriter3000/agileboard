@@ -19,7 +19,7 @@ class Project(Base):
     name = Column(String, nullable=False)
     description = Column(Text)
     owner_id = Column(Integer, ForeignKey("users.id"))
-    status = Column(Enum("Active", "Archived", name="project_status"), default="Active")
+    status = Column(Enum("Active", "Archived", "Completed", name="project_status"), default="Active")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -166,12 +166,24 @@ def verify_token(token: str) -> TokenData:
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        user_id: int = payload.get("user_id")
-        if email is None:
+        subject: str = payload.get("sub")
+        if subject is None:
             raise credentials_exception
-        token_data = TokenData(email=email, user_id=user_id)
-        print(f"DEBUG: Token verification successful for user: {email}")
+        
+        # Check if subject is a user ID (new format) or email (legacy format)
+        if subject.isdigit():
+            # New format: subject is user_id
+            user_id = int(subject)
+            email = payload.get("email")  # email is optional in new format
+            token_data = TokenData(email=email, user_id=user_id)
+            print(f"DEBUG: Token verification successful for user ID: {user_id}")
+        else:
+            # Legacy format: subject is email
+            email = subject
+            user_id = payload.get("user_id")  # user_id might be available
+            token_data = TokenData(email=email, user_id=user_id)
+            print(f"DEBUG: Token verification successful for email: {email}")
+        
         return token_data
     except JWTError:
         print(f"DEBUG: JWT decode failed")

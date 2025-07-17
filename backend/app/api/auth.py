@@ -42,7 +42,7 @@ def authenticate_user(db: Session, email: str, password: str) -> User:
         return False
     return user
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", response_model=LoginResponse, status_code=201)
 def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     """Authenticate user and return access token."""
     user = authenticate_user(db, login_data.email, login_data.password)
@@ -55,7 +55,7 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email, "user_id": user.id},
+        data={"sub": str(user.id), "email": user.email},  # Use user ID as subject
         expires_delta=access_token_expires
     )
 
@@ -75,7 +75,7 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
         )
     )
 
-@router.post("/token", response_model=Token)
+@router.post("/token", response_model=Token, status_code=201)
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
@@ -91,7 +91,7 @@ def login_for_access_token(
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email, "user_id": user.id},
+        data={"sub": str(user.id), "email": user.email},  # Use user ID as subject
         expires_delta=access_token_expires
     )
 
@@ -112,14 +112,14 @@ def read_users_me(current_user: User = Depends(get_current_user)):
         role=current_user.role
     )
 
-@router.post("/logout")
+@router.post("/logout", status_code=201)
 def logout(current_user: User = Depends(get_current_user)):
     """Logout endpoint that revokes all tokens for the current user."""
     # Revoke all tokens belonging to this user
     revoke_all_user_tokens(current_user.id)
     return {"message": "Successfully logged out from all devices"}
 
-@router.post("/logout-current")
+@router.post("/logout-current", status_code=201)
 def logout_current_device(
     current_user: User = Depends(get_current_user),
     token: str = Depends(security)
@@ -129,7 +129,7 @@ def logout_current_device(
     revoke_token(token.credentials)
     return {"message": "Successfully logged out from current device"}
 
-@router.post("/register", response_model=UserOut)
+@router.post("/register", response_model=UserOut, status_code=201)
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """Register a new user (temporarily disabled)."""
     # Temporarily disable registration
